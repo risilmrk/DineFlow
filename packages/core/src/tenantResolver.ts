@@ -2,7 +2,7 @@
 // DineFlow Tenant & Hostname Resolution Engine
 // ==============================================================================
 
-export type ResolvedPanel = 'landing' | 'super_admin' | 'hotel_admin' | 'guest';
+export type ResolvedPanel = 'landing' | 'super_admin' | 'hotel_admin' | 'waiter' | 'guest';
 
 export interface TenantContextInfo {
   panel: ResolvedPanel;
@@ -39,7 +39,16 @@ export function resolveTenant(
   if (explicitPanel === 'dashboard' || explicitPanel === 'hotel_admin') {
     return {
       panel: 'hotel_admin',
-      hotelSlug: explicitHotel || 'gusto',
+      hotelSlug: explicitHotel || 'royal',
+      hostname,
+      isReservedAdmin: true,
+      isSubdomain: false,
+    };
+  }
+  if (explicitPanel === 'waiter') {
+    return {
+      panel: 'waiter',
+      hotelSlug: explicitHotel || 'royal',
       hostname,
       isReservedAdmin: true,
       isSubdomain: false,

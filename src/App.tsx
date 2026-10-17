@@ -4,10 +4,11 @@ import { LandingApp } from '@dineflow/app-landing';
 import { SuperAdminApp } from '@dineflow/app-superadmin';
 import { AdminApp } from '@dineflow/app-admin';
 import { GuestApp } from '@dineflow/app-guest';
-import { Globe, Crown, Building2, Smartphone, ChevronUp, ChevronDown, Plus, LogIn } from 'lucide-react';
+import { Globe, Crown, Building2, Smartphone, ChevronUp, ChevronDown, Plus, LogIn, ChefHat } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginModal } from './components/auth/LoginModal';
 import { CreateHotelModal } from './components/hotel/CreateHotelModal';
+import { WaiterPanel } from './panels/WaiterPanel';
 import { SubscriptionPlan, supabase } from '@dineflow/database';
 
 const MainAppContent: React.FC = () => {
@@ -67,6 +68,9 @@ const MainAppContent: React.FC = () => {
     } else if (panel === 'hotel_admin') {
       url.searchParams.set('panel', 'dashboard');
       url.searchParams.set('hotel', hotelSlug);
+    } else if (panel === 'waiter') {
+      url.searchParams.set('panel', 'waiter');
+      url.searchParams.set('hotel', hotelSlug);
     } else if (panel === 'guest') {
       url.searchParams.delete('panel');
       url.searchParams.set('hotel', hotelSlug);
@@ -110,6 +114,14 @@ const MainAppContent: React.FC = () => {
             onNavigateToGuest={(slug) => navigateToPanel('guest', slug)}
             onNavigateToSuperAdmin={() => navigateToPanel('super_admin')}
             onNavigateToLanding={() => navigateToPanel('landing')}
+          />
+        )}
+
+        {activePanel === 'waiter' && (
+          <WaiterPanel
+            hotelSlug={activeHotelSlug}
+            onNavigateToHotelAdmin={(slug) => navigateToPanel('hotel_admin', slug)}
+            onNavigateToGuest={(slug) => navigateToPanel('guest', slug)}
           />
         )}
 
@@ -194,15 +206,27 @@ const MainAppContent: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => navigateToPanel('guest', activeHotelSlug)}
+                  onClick={() => navigateToPanel('waiter', activeHotelSlug)}
                   className={`p-2 rounded-xl text-left flex items-center gap-2 transition cursor-pointer ${
+                    activePanel === 'waiter'
+                      ? 'bg-amber-600 text-white font-bold'
+                      : 'bg-slate-850 hover:bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  <ChefHat className="w-3.5 h-3.5" />
+                  Waiter Station
+                </button>
+
+                <button
+                  onClick={() => navigateToPanel('guest', activeHotelSlug)}
+                  className={`col-span-2 p-2 rounded-xl text-left flex items-center justify-center gap-2 transition cursor-pointer ${
                     activePanel === 'guest'
                       ? 'bg-emerald-600 text-white font-bold'
                       : 'bg-slate-850 hover:bg-slate-800 text-slate-300'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
-                  Guest Menu
+                  Guest Self-Ordering Menu
                 </button>
               </div>
 

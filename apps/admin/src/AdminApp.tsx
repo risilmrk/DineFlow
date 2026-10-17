@@ -9,6 +9,9 @@ import {
   Settings,
   ExternalLink,
   ChevronDown,
+  LayoutGrid,
+  ChefHat,
+  BellRing,
 } from 'lucide-react';
 import {
   Hotel,
@@ -22,6 +25,9 @@ import {
   FinancialTransaction,
   ApiKey,
   HotelRole,
+  HotelTable,
+  Order,
+  WaiterCall,
   supabase,
 } from '@dineflow/database';
 import { buildHotelGuestUrl } from '@dineflow/core';
@@ -32,6 +38,8 @@ import { StaffModule } from './modules/staff/StaffModule';
 import { QRCodeModule } from './modules/qrcode/QRCodeModule';
 import { ApiModule } from './modules/api/ApiModule';
 import { SettingsModule } from './modules/settings/SettingsModule';
+import { TablesModule } from './modules/tables/TablesModule';
+import { OrdersModule } from './modules/orders/OrdersModule';
 
 export interface AdminAppProps {
   initialHotelSlug?: string;
@@ -40,7 +48,7 @@ export interface AdminAppProps {
   onNavigateToLanding?: () => void;
 }
 
-export type AdminModuleTab = 'menu' | 'accounting' | 'staff' | 'qrcode' | 'api' | 'settings';
+export type AdminModuleTab = 'orders' | 'tables' | 'menu' | 'accounting' | 'staff' | 'qrcode' | 'api' | 'settings';
 
 export const AdminApp: React.FC<AdminAppProps> = ({
   initialHotelSlug = 'gusto',
@@ -54,6 +62,13 @@ export const AdminApp: React.FC<AdminAppProps> = ({
   const [subscription, setSubscription] = useState<HotelSubscription | null>(null);
   const [activeTab, setActiveTab] = useState<AdminModuleTab>('menu');
 
+  // Keep activeHotelSlug in sync when initialHotelSlug prop changes
+  useEffect(() => {
+    if (initialHotelSlug) {
+      setActiveHotelSlug(initialHotelSlug);
+    }
+  }, [initialHotelSlug]);
+
   // Domain data
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -64,6 +79,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [roles, setRoles] = useState<HotelRole[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [tables, setTables] = useState<HotelTable[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch all hotels list for top tenant switcher
@@ -86,7 +104,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({
           .from('hotels')
           .select('*')
           .eq('slug', activeHotelSlug)
-          .single();
+          .maybeSingle();
 
         if (hotelData) {
           setHotel(hotelData);
@@ -111,6 +129,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({
             invRes,
             rolesRes,
             keyRes,
+            tablesRes,
+            ordersRes,
+            callsRes,
           ] = await Promise.all([
             supabase
               .from('menu_categories')
@@ -152,6 +173,21 @@ export const AdminApp: React.FC<AdminAppProps> = ({
               .select('*')
               .eq('hotel_id', hotelData.id)
               .order('created_at', { ascending: false }),
+            supabase
+              .from('hotel_tables')
+              .select('*')
+              .eq('hotel_id', hotelData.id)
+              .order('table_number'),
+            supabase
+              .from('orders')
+              .select('*, items:order_items(*)')
+              .eq('hotel_id', hotelData.id)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('waiter_calls')
+              .select('*')
+              .eq('hotel_id', hotelData.id)
+              .order('created_at', { ascending: false }),
           ]);
 
           setCategories(catRes.data || []);
@@ -163,6 +199,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({
           setInvitations(invRes.data || []);
           setRoles(rolesRes.data || []);
           setApiKeys(keyRes.data || []);
+          setTables(tablesRes.data || []);
+          setOrders(ordersRes.data || []);
+          setWaiterCalls(callsRes.data || []);
         }
       } catch (err) {
         console.error('Error loading hotel admin data:', err);
@@ -352,6 +391,37 @@ export const AdminApp: React.FC<AdminAppProps> = ({
     );
   };
 
+  // Handlers for Tables & Orders modules
+  const handleRefreshTables = async () => {
+    if (!hotel) return;
+    const { data } = await supabase
+      .from('hotel_tables')
+      .select('*')
+      .eq('hotel_id', hotel.id)
+      .order('table_number');
+    if (data) setTables(data);
+  };
+
+  const handleRefreshOrders = async () => {
+    if (!hotel) return;
+    const { data } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .eq('hotel_id', hotel.id)
+      .order('created_at', { ascending: false });
+    if (data) setOrders(data);
+  };
+
+  const handleRefreshWaiterCalls = async () => {
+    if (!hotel) return;
+    const { data } = await supabase
+      .from('waiter_calls')
+      .select('*')
+      .eq('hotel_id', hotel.id)
+      .order('created_at', { ascending: false });
+    if (data) setWaiterCalls(data);
+  };
+
   // Handlers for Settings module
   const handleUpdateHotel = async (updatedFields: Partial<Hotel>) => {
     if (!hotel) return;
@@ -383,7 +453,20 @@ export const AdminApp: React.FC<AdminAppProps> = ({
 
   const guestUrl = buildHotelGuestUrl(hotel.slug);
 
-  const tabs: { id: AdminModuleTab; label: string; icon: any; count?: number }[] = [
+  const pendingCallsCount = waiterCalls.filter((c) => c.status !== 'resolved').length;
+  const activeOrdersCount = orders.filter((o) =>
+    ['pending', 'confirmed', 'in_kitchen', 'ready'].includes(o.status)
+  ).length;
+
+  const tabs: { id: AdminModuleTab; label: string; icon: any; count?: number; highlight?: boolean }[] = [
+    {
+      id: 'orders',
+      label: 'Live Orders & Waiter',
+      icon: ChefHat,
+      count: activeOrdersCount || pendingCallsCount,
+      highlight: pendingCallsCount > 0,
+    },
+    { id: 'tables', label: 'Floor & Tables', icon: LayoutGrid, count: tables.length },
     { id: 'menu', label: 'Menu & Dishes', icon: UtensilsCrossed, count: menuItems.length },
     { id: 'accounting', label: 'Accounting & Ledger', icon: Coins, count: transactions.length },
     { id: 'staff', label: 'Staff & Roles', icon: Users, count: memberships.length },
@@ -479,6 +562,41 @@ export const AdminApp: React.FC<AdminAppProps> = ({
 
       {/* Main Module Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+        {activeTab === 'orders' && (
+          <OrdersModule
+            hotel={hotel}
+            orders={orders}
+            waiterCalls={waiterCalls}
+            tables={tables}
+            menuItems={menuItems}
+            accounts={accounts}
+            accountingCategories={accountingCategories}
+            onRefreshOrders={handleRefreshOrders}
+            onRefreshWaiterCalls={handleRefreshWaiterCalls}
+            onRefreshLedger={() => {
+              supabase
+                .from('hotel_financial_transactions')
+                .select('*, account:hotel_financial_accounts(*), category:hotel_accounting_categories(*)')
+                .eq('hotel_id', hotel.id)
+                .order('transaction_date', { ascending: false })
+                .then(({ data }) => data && setTransactions(data));
+              supabase
+                .from('hotel_financial_accounts')
+                .select('*')
+                .eq('hotel_id', hotel.id)
+                .then(({ data }) => data && setAccounts(data));
+            }}
+          />
+        )}
+
+        {activeTab === 'tables' && (
+          <TablesModule
+            hotel={hotel}
+            tables={tables}
+            onRefreshTables={handleRefreshTables}
+          />
+        )}
+
         {activeTab === 'menu' && (
           <MenuModule
             hotelId={hotel.id}

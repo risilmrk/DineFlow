@@ -301,3 +301,66 @@ export interface EntitlementCheckResult {
   percentageUsed: number;
   message?: string;
 }
+
+export type TableStatus = 'available' | 'occupied' | 'reserved' | 'calling_waiter';
+
+export interface HotelTable {
+  id: string;
+  hotel_id: string;
+  table_number: string;
+  capacity: number;
+  section: string;
+  qr_code_url?: string | null;
+  status: TableStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OrderStatus = 'pending' | 'confirmed' | 'in_kitchen' | 'ready' | 'served' | 'completed' | 'cancelled';
+export type OrderPaymentStatus = 'unpaid' | 'paid' | 'refunded';
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  menu_item_id?: string | null;
+  item_name: string;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+  special_notes?: string | null;
+  created_at: string;
+}
+
+export interface Order {
+  id: string;
+  hotel_id: string;
+  table_id?: string | null;
+  table_number: string;
+  order_number: string;
+  guest_name?: string | null;
+  status: OrderStatus;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  payment_status: OrderPaymentStatus;
+  payment_method?: string | null;
+  special_instructions?: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: OrderItem[];
+}
+
+export type WaiterRequestType = 'call_waiter' | 'water_refill' | 'bring_cutlery' | 'bring_bill' | 'clean_table' | 'custom';
+export type WaiterCallStatus = 'pending' | 'attending' | 'resolved';
+
+export interface WaiterCall {
+  id: string;
+  hotel_id: string;
+  table_id?: string | null;
+  table_number: string;
+  request_type: WaiterRequestType;
+  custom_note?: string | null;
+  status: WaiterCallStatus;
+  created_at: string;
+  resolved_at?: string | null;
+}

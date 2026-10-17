@@ -16,12 +16,16 @@ interface GuestMenuModuleProps {
   categories: MenuCategory[];
   items: MenuItem[];
   currencySymbol: string;
+  onAddToCart?: (item: MenuItem) => void;
+  getItemQuantity?: (itemId: string) => number;
 }
 
 export const GuestMenuModule: React.FC<GuestMenuModuleProps> = ({
   categories,
   items,
   currencySymbol,
+  onAddToCart,
+  getItemQuantity,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDietaryTag, setSelectedDietaryTag] = useState<string>('all');
@@ -211,9 +215,30 @@ export const GuestMenuModule: React.FC<GuestMenuModuleProps> = ({
             </div>
 
             <div className="p-3 bg-slate-950/40 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1 text-orange-400 font-medium">
-                <Info className="w-3.5 h-3.5" /> Tap for allergens & ingredients
+              <span
+                onClick={() => setActiveDish(item)}
+                className="flex items-center gap-1 text-slate-400 hover:text-white font-medium cursor-pointer transition"
+              >
+                <Info className="w-3.5 h-3.5 text-orange-400" /> Details & Allergens
               </span>
+
+              {onAddToCart && item.is_available !== false && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCart(item);
+                  }}
+                  className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>+ Add</span>
+                  {getItemQuantity && getItemQuantity(item.id) > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-white text-orange-600 text-[10px] flex items-center justify-center font-bold">
+                      {getItemQuantity(item.id)}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -286,6 +311,24 @@ export const GuestMenuModule: React.FC<GuestMenuModuleProps> = ({
                   <p className="font-bold">Allergen Notice:</p>
                   <p className="text-amber-200 mt-0.5">{activeDish.allergens.join(', ')}</p>
                 </div>
+              </div>
+            )}
+
+            {onAddToCart && activeDish.is_available !== false && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddToCart(activeDish);
+                    setActiveDish(null);
+                  }}
+                  className="w-full py-3 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-2xl shadow-lg shadow-orange-500/25 transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>
+                    Add to Order Tray • {currencySymbol}
+                    {Number(activeDish.price).toFixed(2)}
+                  </span>
+                </button>
               </div>
             )}
           </div>
