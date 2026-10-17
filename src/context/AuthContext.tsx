@@ -3,7 +3,7 @@
 // ==============================================================================
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, Hotel, HotelMembership, HotelRole } from '../types';
+import { UserProfile, Hotel, HotelMembership, HotelRole, supabase } from '@dineflow/database';
 
 export type UserPersona = 'super_admin' | 'hotel_owner' | 'hotel_manager' | 'guest';
 
@@ -11,11 +11,15 @@ export interface AuthContextType {
   user: UserProfile | null;
   activePersona: UserPersona;
   currentHotel: Hotel | null;
+  userHotels: Hotel[];
   hotelMemberships: HotelMembership[];
   isSuperAdmin: boolean;
   hasPermission: (permissionId: string) => boolean;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
   switchPersona: (persona: UserPersona, targetHotelSlug?: string) => void;
   setCurrentHotel: (hotel: Hotel | null) => void;
+  refreshUserHotels: () => Promise<void>;
   loading: boolean;
 }
 
@@ -54,30 +58,95 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activePersona, setActivePersona] = useState<UserPersona>(() => {
-    return (localStorage.getItem('dineflow_persona') as UserPersona) || 'super_admin';
+    return (localStorage.getItem('dineflow_persona') as UserPersona) || 'hotel_owner';
   });
   const [user, setUser] = useState<UserProfile | null>(DEMO_USERS[activePersona]);
   const [currentHotel, setCurrentHotel] = useState<Hotel | null>(null);
+  const [userHotels, setUserHotels] = useState<Hotel[]>([]);
+  const [hotelMemberships, setHotelMemberships] = useState<HotelMembership[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Load user hotels list
+  const refreshUserHotels = async () => {
+    try {
+      const { data } = await supabase.from('hotels').select('*').order('name');
+      if (data) setUserHotels(data);
+    } catch (err) {
+      console.error('Error loading user hotels:', err);
+    }
+  };
+
   useEffect(() => {
-    setUser(DEMO_USERS[activePersona]);
-    localStorage.setItem('dineflow_persona', activePersona);
-  }, [activePersona]);
+    refreshUserHotels();
+  }, []);
+
+  // Listen to Supabase Auth state (e.g. from Google login)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || 'user@example.com',
+          full_name:
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email?.split('@')[0],
+          avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+          created_at: session.user.created_at,
+        });
+        setActivePersona('hotel_owner');
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || 'user@example.com',
+          full_name:
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email?.split('@')[0],
+          avatar_url: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+          created_at: session.user.created_at,
+        });
+        setActivePersona('hotel_owner');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setActivePersona('guest');
+    localStorage.removeItem('dineflow_persona');
+  };
 
   const isSuperAdmin = activePersona === 'super_admin';
 
   const hasPermission = (permissionId: string): boolean => {
     if (isSuperAdmin) return true;
-    if (activePersona === 'hotel_owner') return true; // Owner has all permissions for their hotel
+    if (activePersona === 'hotel_owner') return true;
     if (activePersona === 'hotel_manager') {
       const allowed = [
-        'menu.view',
-        'menu.manage',
-        'categories.manage',
-        'analytics.view',
-        'accounting.view',
-        'accounting.transactions.create',
+        'menu:view',
+        'menu:manage',
+        'accounting:view',
+        'accounting:manage',
       ];
       return allowed.includes(permissionId);
     }
@@ -87,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchPersona = (persona: UserPersona) => {
     setActivePersona(persona);
     setUser(DEMO_USERS[persona]);
+    localStorage.setItem('dineflow_persona', persona);
   };
 
   return (
@@ -95,11 +165,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         activePersona,
         currentHotel,
-        hotelMemberships: [],
+        userHotels,
+        hotelMemberships,
         isSuperAdmin,
         hasPermission,
+        signInWithGoogle,
+        signOut,
         switchPersona,
         setCurrentHotel,
+        refreshUserHotels,
         loading,
       }}
     >

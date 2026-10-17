@@ -6,47 +6,63 @@ import {
   Shield,
   Sparkles,
   ArrowRight,
+  Plus,
+  LogIn,
+  LogOut,
+  User,
 } from 'lucide-react';
-import { SubscriptionPlan, Hotel, supabase } from '@dineflow/database';
+import { SubscriptionPlan, Hotel, UserProfile, supabase } from '@dineflow/database';
 import { Button, Badge } from '@dineflow/ui';
 import { HeroModule } from './modules/hero/HeroModule';
 import { FeaturesModule } from './modules/features/FeaturesModule';
 import { PricingModule } from './modules/pricing/PricingModule';
 import { DocsModule } from './modules/docs/DocsModule';
+import { LoginModal } from '../../../src/components/auth/LoginModal';
+import { CreateHotelModal } from '../../../src/components/hotel/CreateHotelModal';
 
 export interface LandingAppProps {
   onNavigateToHotelAdmin?: (slug?: string) => void;
   onNavigateToSuperAdmin?: () => void;
   onNavigateToGuest?: (slug: string) => void;
+  currentUser?: UserProfile | null;
+  onSignOut?: () => void;
+  onSelectDemoUser?: (persona: 'hotel_owner' | 'hotel_manager' | 'super_admin') => void;
 }
 
 export const LandingApp: React.FC<LandingAppProps> = ({
   onNavigateToHotelAdmin,
   onNavigateToSuperAdmin,
   onNavigateToGuest,
+  currentUser,
+  onSignOut,
+  onSelectDemoUser,
 }) => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadLandingData() {
-      try {
-        setLoading(true);
-        const [plansRes, hotelsRes] = await Promise.all([
-          supabase.from('subscription_plans').select('*').order('sort_order'),
-          supabase.from('hotels').select('*').order('name'),
-        ]);
+  // Modals state
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isCreateHotelOpen, setIsCreateHotelOpen] = useState(false);
 
-        if (plansRes.data) setPlans(plansRes.data);
-        if (hotelsRes.data) setHotels(hotelsRes.data);
-      } catch (err) {
-        console.error('Error fetching landing data:', err);
-      } finally {
-        setLoading(false);
-      }
+  const loadLandingData = async () => {
+    try {
+      setLoading(true);
+      const [plansRes, hotelsRes] = await Promise.all([
+        supabase.from('subscription_plans').select('*').order('sort_order'),
+        supabase.from('hotels').select('*').order('name'),
+      ]);
+
+      if (plansRes.data) setPlans(plansRes.data);
+      if (hotelsRes.data) setHotels(hotelsRes.data);
+    } catch (err) {
+      console.error('Error fetching landing data:', err);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  useEffect(() => {
     loadLandingData();
   }, []);
 
@@ -59,6 +75,13 @@ export const LandingApp: React.FC<LandingAppProps> = ({
   const handleScrollToPricing = () => {
     const el = document.getElementById('pricing');
     el?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleHotelCreated = (newHotel: { id: string; name: string; slug: string }) => {
+    loadLandingData();
+    if (onNavigateToHotelAdmin) {
+      onNavigateToHotelAdmin(newHotel.slug);
+    }
   };
 
   return (
@@ -88,14 +111,56 @@ export const LandingApp: React.FC<LandingAppProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            {onNavigateToSuperAdmin && (
-              <button
-                onClick={onNavigateToSuperAdmin}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-purple-400 hover:text-purple-300 font-medium transition cursor-pointer"
+            {/* Create Hotel Button */}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Plus}
+              onClick={() => setIsCreateHotelOpen(true)}
+              className="border-orange-500/40 text-orange-400 hover:text-white"
+            >
+              Create Hotel
+            </Button>
+
+            {/* Auth / Profile display */}
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                {currentUser.avatar_url ? (
+                  <img
+                    src={currentUser.avatar_url}
+                    alt={currentUser.full_name || ''}
+                    className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-orange-400">
+                    {(currentUser.full_name || currentUser.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-xs text-slate-200 hidden sm:inline max-w-[120px] truncate">
+                  {currentUser.full_name || currentUser.email}
+                </span>
+                {onSignOut && (
+                  <button
+                    onClick={onSignOut}
+                    className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={LogIn}
+                onClick={() => setIsLoginModalOpen(true)}
               >
-                Super Admin
-              </button>
+                Sign In
+              </Button>
             )}
+
+            {/* Admin Console Link */}
             {onNavigateToHotelAdmin && (
               <Button
                 variant="primary"
@@ -119,9 +184,25 @@ export const LandingApp: React.FC<LandingAppProps> = ({
         {/* Live Hotel Subdomain Showcase */}
         <section className="py-12 bg-slate-900/30 border-y border-slate-800/80">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <p className="text-center text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">
-              Experience Subdomain-Isolated Live Guest Menus
-            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Subdomain-Isolated Live Guest Menus
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Click any hotel to experience its responsive guest digital menu
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Plus}
+                onClick={() => setIsCreateHotelOpen(true)}
+              >
+                Create Your Hotel
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {hotels.map((h) => (
                 <div
@@ -159,7 +240,7 @@ export const LandingApp: React.FC<LandingAppProps> = ({
 
         <PricingModule
           plans={plans}
-          onSelectPlan={() => onNavigateToHotelAdmin && onNavigateToHotelAdmin('gusto')}
+          onSelectPlan={() => setIsCreateHotelOpen(true)}
         />
 
         <DocsModule />
@@ -175,6 +256,21 @@ export const LandingApp: React.FC<LandingAppProps> = ({
           <p>© 2026 DineFlow Platform Inc. All rights reserved.</p>
         </div>
       </footer>
+
+      {/* Login Modal with Google OAuth */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSelectDemoUser={onSelectDemoUser}
+      />
+
+      {/* Create Hotel by Users Modal */}
+      <CreateHotelModal
+        isOpen={isCreateHotelOpen}
+        onClose={() => setIsCreateHotelOpen(false)}
+        plans={plans}
+        onHotelCreated={handleHotelCreated}
+      />
     </div>
   );
 };
