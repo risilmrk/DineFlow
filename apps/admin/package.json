@@ -1,0 +1,15 @@
+{
+  "name": "@dineflow/app-admin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dineflow/core": "*",
+    "@dineflow/database": "*",
+    "@dineflow/ui": "*",
+    "lucide-react": "^1.16.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

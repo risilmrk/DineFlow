@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "types": ["vite/client", "node"],
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@dineflow/database": ["packages/database/src/index.ts"],
+      "@dineflow/database/*": ["packages/database/src/*"],
+      "@dineflow/core": ["packages/core/src/index.ts"],
+      "@dineflow/core/*": ["packages/core/src/*"],
+      "@dineflow/ui": ["packages/ui/src/index.ts"],
+      "@dineflow/ui/*": ["packages/ui/src/*"],
+      "@dineflow/app-admin": ["apps/admin/src/index.ts"],
+      "@dineflow/app-admin/*": ["apps/admin/src/*"],
+      "@dineflow/app-superadmin": ["apps/superadmin/src/index.ts"],
+      "@dineflow/app-superadmin/*": ["apps/superadmin/src/*"],
+      "@dineflow/app-landing": ["apps/landing/src/index.ts"],
+      "@dineflow/app-landing/*": ["apps/landing/src/*"],
+      "@dineflow/app-guest": ["apps/guest/src/index.ts"],
+      "@dineflow/app-guest/*": ["apps/guest/src/*"]
+    }
+  },
+  "include": ["src", "packages", "apps", "tests"]
+}
